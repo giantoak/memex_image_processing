@@ -65,13 +65,13 @@ class HashImages:
             hashes = []
             hits = page['hits']['hits']
             for hit in hits:
-                image_url = hit.get('_source').get('obj_stored_url')
-                if image_url:
-                    http_error_retries = 0
-                    http_timeout_retries = 0
-                    # If we have retried 3 times for either reason then let's stop
-                    while http_error_retries < 3 and http_timeout_retries < 3:
-                        try:
+                try:
+                    image_url = hit.get('_source').get('obj_stored_url')
+                    if image_url:
+                        http_error_retries = 0
+                        http_timeout_retries = 0
+                        # If we have retried 3 times for either reason then let's stop
+                        while http_error_retries < 3 and http_timeout_retries < 3:
                             image = requests.get(image_url, timeout=6)
                             h = sha1()
                             h.update(image.text.encode('utf8'))
@@ -83,17 +83,17 @@ class HashImages:
                                          'doc_id': hit.get('_id')}
                             hashes.append(hash_dict)
                             break
-                        except requests.exceptions.HTTPError:
-                            # Http errors are rare, if they happen increment 1 to the http_retry and try again
-                            http_error_retries += 1
-                        except requests.exceptions.Timeout:
-                            # Increment the retry and try again
-                            http_timeout_retries += 1
-                        except requests.exceptions.RequestException:
-                            # Some other request error occurred. Save black result
-                            hash_dict = {'hash': None, 'parent': None, 'url': image_url}
-                            hashes.append(hash_dict)
-                            break
+                except requests.exceptions.HTTPError:
+                    # Http errors are rare, if they happen increment 1 to the http_retry and try again
+                    http_error_retries += 1
+                except requests.exceptions.Timeout:
+                    # Increment the retry and try again
+                    http_timeout_retries += 1
+                except requests.exceptions.RequestException:
+                    # Some other request error occurred. Save black result
+                    hash_dict = {'hash': None, 'parent': None, 'url': image_url}
+                    hashes.append(hash_dict)
+                    break
             self.query_builder.insert('image_hashes', values=hashes, bulk=True)
         # If there are no hits the page is empty and we are done
         else:
