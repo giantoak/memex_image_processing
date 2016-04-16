@@ -72,8 +72,6 @@ class QueryBuilder():
                 statement += ')'
 
             statement += ' RETURNING doc_id'
-            print statement
-            print insert_values
 
             try:
                 if bulk:
@@ -84,5 +82,6 @@ class QueryBuilder():
                 return self.cursor.fetchone()['doc_id']
             except Exception as e:
                 print 'There was an error inserting the rows'
+                print statement
                 print e
                 self.database_connection.rollback()

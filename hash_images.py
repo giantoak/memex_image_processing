@@ -1,6 +1,7 @@
 import requests
 import csv
 import time
+import certifi
 from elasticsearch import Elasticsearch
 from hashlib import sha1
 from query_builder import QueryBuilder
@@ -21,7 +22,7 @@ class HashImages:
 
         # Create elasticsearch instance
         url = 'https://memex:qRJfu2uPkMLmH9cp@els.istresearch.com:19200/'
-        self.elasticsearch = Elasticsearch(url, timeout=10000)
+        self.elasticsearch = Elasticsearch(url, timeout=10000, verify_certs=True, ca_certs=certifi.where())
 
         self.INDEX = 'memex-domains'
         self.DOC_TYPE = 'escorts'
@@ -65,13 +66,13 @@ class HashImages:
             hashes = []
             hits = page['hits']['hits']
             for hit in hits:
-                try:
-                    image_url = hit.get('_source').get('obj_stored_url')
-                    if image_url:
-                        http_error_retries = 0
-                        http_timeout_retries = 0
-                        # If we have retried 3 times for either reason then let's stop
-                        while http_error_retries < 3 and http_timeout_retries < 3:
+                image_url = hit.get('_source').get('obj_stored_url')
+                if image_url:
+                    http_error_retries = 0
+                    http_timeout_retries = 0
+                    # If we have retried 3 times for either reason then let's stop
+                    while http_error_retries < 3 and http_timeout_retries < 3:
+                        try:
                             image = requests.get(image_url, timeout=6)
                             h = sha1()
                             h.update(image.text.encode('utf8'))
@@ -83,18 +84,24 @@ class HashImages:
                                          'doc_id': hit.get('_id')}
                             hashes.append(hash_dict)
                             break
-                except requests.exceptions.HTTPError:
-                    # Http errors are rare, if they happen increment 1 to the http_retry and try again
-                    http_error_retries += 1
-                except requests.exceptions.Timeout:
-                    # Increment the retry and try again
-                    http_timeout_retries += 1
-                except requests.exceptions.RequestException:
-                    # Some other request error occurred. Save black result
-                    hash_dict = {'hash': None, 'parent': None, 'url': image_url}
-                    hashes.append(hash_dict)
-                    break
+                        except requests.HTTPError:
+                            # Http errors are rare, if they happen increment 1 to the http_retry and try again
+                            http_error_retries += 1
+                        except requests.exceptions.Timeout:
+                            # Increment the retry and try again
+                            http_timeout_retries += 1
+                        except:
+                            # Some other request error occurred. Save black result
+                            hash_dict = {'hash': None,
+                                         'parent': hit.get('_source').get('obj_parent'),
+                                         'url': hit.get('_source').get('obj_original_url'),
+                                         'timestamp': hit.get('_source').get('timestamp'),
+                                         'stored_url': hit.get('_source').get('obj_stored_url'),
+                                         'doc_id': hit.get('_id')}
+                            hashes.append(hash_dict)
+                            break
             self.query_builder.insert('image_hashes', values=hashes, bulk=True)
+            print 'Finished parsing scroll'
         # If there are no hits the page is empty and we are done
         else:
             self.write_file(filename, {'scroll_id': 'done',
