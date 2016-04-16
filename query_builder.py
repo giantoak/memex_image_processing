@@ -82,6 +82,5 @@ class QueryBuilder():
                 return self.cursor.fetchone()['doc_id']
             except Exception as e:
                 print 'There was an error inserting the rows'
-                print statement
                 print e
                 self.database_connection.rollback()

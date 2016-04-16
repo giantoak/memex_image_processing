@@ -2,6 +2,7 @@ import requests
 import csv
 import time
 import certifi
+import requests.packages.urllib3
 from elasticsearch import Elasticsearch
 from hashlib import sha1
 from query_builder import QueryBuilder
@@ -30,6 +31,8 @@ class HashImages:
         self.SEARCH_TYPE = 'scan'
 
         self.query_builder = QueryBuilder()
+
+        requests.packages.urllib3.disable_warnings()
 
     def hash_images(self, filename, scroll_id=None, scroll_count=0, records_processed=0):
         """
@@ -101,7 +104,6 @@ class HashImages:
                             hashes.append(hash_dict)
                             break
             self.query_builder.insert('image_hashes', values=hashes, bulk=True)
-            print 'Finished parsing scroll'
         # If there are no hits the page is empty and we are done
         else:
             self.write_file(filename, {'scroll_id': 'done',
