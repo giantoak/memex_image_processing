@@ -1,5 +1,4 @@
 import requests
-import csv
 import time
 import certifi
 from elasticsearch import Elasticsearch
@@ -31,10 +30,9 @@ class HashImages:
 
         self.query_builder = QueryBuilder()
 
-    def hash_images(self, filename, scroll_id=None, scroll_count=0, records_processed=0):
+    def hash_images(self, scroll_id=None, scroll_count=0, records_processed=0):
         """
         Will generate hash for each image
-        :param filename: location of file used to save the scrolls
         :param scroll_id: current scroll id
         :param scroll_count: current amount of scrolls accessed
         :param records_processed: current amount of records accessed
@@ -69,10 +67,10 @@ class HashImages:
             # Update the records processed with the amount of records in the scroll
             records_processed += len(page['hits']['hits'])
             # Write the new scroll before we start processing so it can be picked up
-            self.write_file(filename, {'scroll_id': page['_scroll_id'],
-                                       'number_of_scrolls': scroll_count,
-                                       'number_of_records': records_processed,
-                                       'status': 'open'})
+            self.query_builder.update('scroll_info', {'scroll': page['_scroll_id'],
+                                                      'scrolls_processed': scroll_count,
+                                                      'records_processed': records_processed,
+                                                      'status': 'open'})
             hashes = []
             hits = page['hits']['hits']
             for hit in hits:
@@ -113,65 +111,38 @@ class HashImages:
             self.query_builder.insert('image_hashes2', values=hashes, bulk=True)
         # If there are no hits the page is empty and we are done
         else:
-            self.write_file(filename, {'scroll_id': 'done',
-                                       'number_of_scrolls': scroll_count,
-                                       'number_of_records': records_processed,
-                                       'status': 'open'})
+            self.query_builder.update('scroll_info', {'scroll': 'done',
+                                                      'scrolls_processed': scroll_count,
+                                                      'records_processed': records_processed,
+                                                      'status': 'open'})
 
-    def read_file(self, filename):
-        """
-        Will read the file used to keep the scroll information and return the information as a dictionary
-        :param filename: location of file that has the scroll information
-        :return: the information from the file as a dictionary
-        """
-        with open(filename) as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                return row
-
-    def write_file(self, filename, row):
-        """
-        Will write to the file with the scroll information
-        :param filename: location of file that has the scroll information
-        :param row: dictionary of information to write to file
-        :return:
-        """
-        with open(filename, 'w') as csvfile:
-            fieldnames = ['scroll_id', 'number_of_scrolls', 'number_of_records', 'status']
-
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerow(row)
-
-    def run(self, filename):
+    def run(self):
         """
         Runs the hash images
-        :param filename:
         :return:
         """
         while True:
-            # First read the file
-            row = self.read_file(filename)
+            # First read the database scroll info
+            row = self.query_builder.select('scroll_info')[0]
             while row['status'] == 'closed':
-                # Wait five seconds and try again
-                time.sleep(5)
-                row = self.read_file(filename)
+                # Wait three second and try again
+                time.sleep(3)
+                row = self.query_builder.select('scroll_info')[0]
 
-            # If we make it here then we are about to start processing the scroll, close the file from reading
+            # If we make it here then we are about to start processing the scroll, close the scroll from reading
             row['status'] = 'closed'
-            self.write_file(filename, row)
+            self.query_builder.update('scroll_info', row)
 
             # This is the first record
-            if row['scroll_id'] == 'start':
-                self.hash_images(filename)
+            if row['scroll'] == 'start':
+                self.hash_images()
             # We are done in this case
-            elif row['scroll_id'] == 'done':
+            elif row['scroll'] == 'done':
                 exit(0)
             # We are in the middle of processing (most likely case)
             else:
-                self.hash_images(filename,
-                                 scroll_id=row['scroll_id'],
-                                 scroll_count=int(row['number_of_scrolls']),
-                                 records_processed=int(row['number_of_records']))
+                self.hash_images(scroll_id=row['scroll'],
+                                 scroll_count=int(row['scrolls_processed']),
+                                 records_processed=int(row['records_processed']))
 
-HashImages().run('scroll_keeper.csv')
+HashImages().run()

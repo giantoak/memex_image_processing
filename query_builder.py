@@ -79,8 +79,51 @@ class QueryBuilder():
                 else:
                     self.cursor.execute(statement, values)
                 self.database_connection.commit()
-                return self.cursor.fetchone()['doc_id']
+                return self.cursor.fetchone()['id']
             except Exception as e:
                 print 'There was an error inserting the rows'
                 print e
                 self.database_connection.rollback()
+
+    def select(self, table, columns = None, where = None, order_by = None, limit = None, offset = None):
+        statement = 'SELECT '
+
+        if columns:
+            for column in columns:
+                statement += column + ', '
+            statement = statement[:-2]
+            statement += ' '
+        else:
+            statement += '* '
+
+        statement += 'FROM ' + table + ' '
+        if where:
+            statement += where + ' '
+        if order_by:
+            statement += order_by + ' '
+        if limit:
+            statement += 'LIMIT ' + str(limit) + ' '
+        if offset:
+            statement += 'OFFSET ' + str(offset) + ' '
+
+        self.cursor.execute(statement)
+        return self.cursor.fetchall()
+
+    def update(self, table, values, where = None):
+        statement = ('UPDATE ' + table + ' SET ')
+
+        for key, value in values.iteritems():
+            if value:
+                statement += key + '=%(' + key + ')s,'
+
+        statement = statement[:-1]
+
+        if where:
+            statement += ' ' + where
+        try:
+            self.cursor.execute(statement, values)
+            self.database_connection.commit()
+        except Exception as e:
+            print 'There was an error updating rows'
+            print e
+            self.database_connection.rollback()
