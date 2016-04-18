@@ -42,7 +42,17 @@ class HashImages:
         """
         # If we don't have a scroll id then this is the first call and an initial search must be done
         if not scroll_id:
-            query = {'query': {'match_all': {}}}
+            query = {"filter":
+                            {"bool":
+                                {"must":
+                                    {"term":
+                                        {"content_type": ["image", "jpeg"]
+                                        }
+                                    }
+                                }
+                            }
+                    }
+
             page = self.elasticsearch.search(index=self.INDEX,
                                              doc_type=self.DOC_TYPE,
                                              scroll=self.SCROLL_TIME,
@@ -100,7 +110,7 @@ class HashImages:
                                          'doc_id': hit.get('_id')}
                             hashes.append(hash_dict)
                             break
-            self.query_builder.insert('image_hashes', values=hashes, bulk=True)
+            self.query_builder.insert('image_hashes2', values=hashes, bulk=True)
         # If there are no hits the page is empty and we are done
         else:
             self.write_file(filename, {'scroll_id': 'done',

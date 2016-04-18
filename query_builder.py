@@ -71,7 +71,7 @@ class QueryBuilder():
                 statement = statement[:-1]
                 statement += ')'
 
-            statement += ' RETURNING doc_id'
+            statement += ' RETURNING id'
 
             try:
                 if bulk:
