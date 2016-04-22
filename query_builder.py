@@ -16,6 +16,7 @@ class QueryBuilder():
         self.connection_string = 'dbname=memex_images user=memex_user host=memex-images.cpld6ftkyyoj.us-gov-west-1.rds.amazonaws.com password=memex0010 port=5432'
 
         self.database_connection = psycopg2.connect(self.connection_string)
+        self.database_connection.autocommit = True
         self.cursor = self.database_connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     def insert(self, table, values, bulk = False):
@@ -78,7 +79,6 @@ class QueryBuilder():
                     self.cursor.execute(statement, insert_values)
                 else:
                     self.cursor.execute(statement, values)
-                self.database_connection.commit()
                 return self.cursor.fetchone()['id']
             except Exception as e:
                 print 'There was an error inserting the rows'
@@ -113,8 +113,7 @@ class QueryBuilder():
         statement = ('UPDATE ' + table + ' SET ')
 
         for key, value in values.iteritems():
-            if value:
-                statement += key + '=%(' + key + ')s,'
+            statement += key + '=%(' + key + ')s,'
 
         statement = statement[:-1]
 
@@ -122,7 +121,7 @@ class QueryBuilder():
             statement += ' ' + where
         try:
             self.cursor.execute(statement, values)
-            self.database_connection.commit()
+            return self.cursor.rowcount
         except Exception as e:
             print 'There was an error updating rows'
             print e
