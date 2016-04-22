@@ -149,15 +149,6 @@ class HashImages:
                                  scroll_count=int(row['scrolls_processed']),
                                  records_processed=int(row['records_processed']))
 
-    def test_query(self):
-        where = 'WHERE status = \'open\''
-        row = self.query_builder.update('scroll_info', values = {'scroll': 'start','scrolls_processed': 0,'records_processed': 0, 'status': 'open'}, where=where)
-        if row:
-            print 'got em'
-        else:
-            print 'nope'
-
-#HashImages().test_query()
 HashImages().run()
 
 
