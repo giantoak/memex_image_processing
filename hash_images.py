@@ -114,7 +114,7 @@ class HashImages:
                                          'doc_id': hit.get('_id')}
                             hashes.append(hash_dict)
                             break
-            self.query_builder.insert('iamge_hashes3', values=hashes, bulk=True)
+            self.query_builder.insert('image_hashes3', values=hashes, bulk=True)
         # If there are no hits the page is empty and we are done
         else:
             self.query_builder.update('scroll_info', {'scroll': 'done',
