@@ -55,10 +55,13 @@ class HashImages:
                 print 'Timeout so im giving up and opening the scroll'
                 self.query_builder.update('scroll_info', {'status': 'open'})
                 exit(1)
-            """except elasticsearch.ElasticsearchException as e:
-                print 'Some other error happened I give up'
+            except elasticsearch.TransportError as e:
+                #Wait 10 seconds and try again
+                print 'Transport error'
+                print e
                 self.query_builder.update('scroll_info', {'status': 'open'})
-                exit(1)"""
+                time.sleep(10)
+                self.hash_images(scroll_id, scroll_count, records_processed)
 
 
         # Increment the scroll_count
