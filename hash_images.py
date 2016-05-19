@@ -137,9 +137,11 @@ class HashImages:
         Runs the hash images
         :return:
         """
+        select = self.query_builder.select('scroll_info')
         while True:
             # Try to open the database and close the scroll
             where = 'WHERE status = \'open\''
+            select = self.query_builder.select('scroll_info')
             rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
             while rows_updated == 0:
                 # Wait three second and try again
