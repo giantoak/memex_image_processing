@@ -57,11 +57,10 @@ class HashImages:
                 exit(1)
             except elasticsearch.TransportError as e:
                 #Wait 10 seconds and try again
-                print 'Transport error'
+                print 'Transport error I quit'
                 print e
                 self.query_builder.update('scroll_info', {'status': 'open'})
-                time.sleep(10)
-                self.hash_images(scroll_id, scroll_count, records_processed)
+                exit(1)
 
 
         # Increment the scroll_count
