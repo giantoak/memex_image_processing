@@ -26,7 +26,7 @@ class HashImages:
 
         self.INDEX = 'memex-domains'
         self.DOC_TYPE = 'escorts'
-        self.SCROLL_TIME = '10m'
+        self.SCROLL_TIME = '2m'
         self.SEARCH_TYPE = 'scan'
 
         self.query_builder = QueryBuilder()
@@ -77,7 +77,7 @@ class HashImages:
                                                       'records_processed': records_processed,
                                                       'status': 'open'})
             # This process is timing out so I'm going to continue where we left off
-            if scroll_count >= 306785:
+            if scroll_count >= 3365062:
                 hashes = []
                 hits = page['hits']['hits']
                 for hit in hits:
