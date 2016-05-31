@@ -26,7 +26,7 @@ class HashImages:
 
         self.INDEX = 'memex-domains'
         self.DOC_TYPE = 'escorts'
-        self.SCROLL_TIME = '2m'
+        self.SCROLL_TIME = '60m'
         self.SEARCH_TYPE = 'scan'
 
         self.query_builder = QueryBuilder()
@@ -52,15 +52,36 @@ class HashImages:
             try:
                 page = self.elasticsearch.scroll(scroll_id=scroll_id, scroll=self.SCROLL_TIME)
             except elasticsearch.ConnectionTimeout as e:
-                print 'Timeout so im giving up and opening the scroll'
-                self.query_builder.update('scroll_info', {'status': 'open'})
-                exit(1)
-            except elasticsearch.TransportError as e:
-                #Wait 10 seconds and try again
-                print 'Transport error I quit'
+                print 'We have a timeut error'
                 print e
                 self.query_builder.update('scroll_info', {'status': 'open'})
-                exit(1)
+                self.run()
+            except elasticsearch.TransportError as e:
+                print 'We have a transport error'
+                print e
+                self.query_builder.update('scroll_info', {'status': 'open'})
+                self.run()
+            except elasticsearch.ConnectionError as e:
+                print 'We have a connection error'
+                print e
+                self.query_builder.update('scroll_info', {'status': 'open'})
+                self.run()
+            except elasticsearch.NotFoundError as e:
+                print 'We have a not found error'
+                print e
+                self.query_builder.update('scroll_info', {'status': 'open'})
+                self.run()
+            except elasticsearch.RequestError as e:
+                print 'We have a request error'
+                print e
+                self.query_builder.update('scroll_info', {'status': 'open'})
+                self.run()
+            except elasticsearch.ElasticsearchException as e:
+                print 'We have some other error'
+                print e
+                self.query_builder.update('scroll_info', {'status': 'open'})
+                self.run()
+
 
 
         # Increment the scroll_count
@@ -76,54 +97,47 @@ class HashImages:
                                                       'records_processed': records_processed,
                                                       'status': 'open'})
             # This process is timing out so I'm going to continue where we left off
-            if scroll_count >= 3365062:
-                hashes = []
-                hits = page['hits']['hits']
-                for hit in hits:
-                    try:
-                        image_url = hit.get('_source').get('obj_stored_url')
-                    except AttributeError:
-                        # Very rare error if happens just skip the record
-                        continue
-                    if image_url:
-                        http_error_retries = 0
-                        http_timeout_retries = 0
-                        # If we have retried 3 times for either reason then let's stop
-                        while http_error_retries < 3 and http_timeout_retries < 3:
-                            try:
-                                image = requests.get(image_url, timeout=6)
-                                h = sha1()
-                                h.update(image.text.encode('utf8'))
-                                hash_dict = {'hash': h.hexdigest(),
-                                             'parent': hit.get('_source').get('obj_parent'),
-                                             'url': hit.get('_source').get('obj_original_url'),
-                                             'timestamp': hit.get('_source').get('timestamp'),
-                                             'stored_url': image_url,
-                                             'doc_id': hit.get('_id')}
-                                hashes.append(hash_dict)
-                                break
-                            except requests.HTTPError:
-                                # Http errors are rare, if they happen increment 1 to the http_retry and try again
-                                http_error_retries += 1
-                            except requests.exceptions.Timeout:
-                                # Increment the retry and try again
-                                http_timeout_retries += 1
-                            except:
-                                # Some other request error occurred. Save black result
-                                hash_dict = {'hash': None,
-                                             'parent': hit.get('_source').get('obj_parent'),
-                                             'url': hit.get('_source').get('obj_original_url'),
-                                             'timestamp': hit.get('_source').get('timestamp'),
-                                             'stored_url': hit.get('_source').get('obj_stored_url'),
-                                             'doc_id': hit.get('_id')}
-                                hashes.append(hash_dict)
-                                break
-                self.query_builder.insert('image_hashes3', values=hashes, bulk=True)
-            else:
-                self.query_builder.update('scroll_info', {'scroll': page['_scroll_id'],
-                                                          'scrolls_processed': scroll_count,
-                                                          'records_processed': records_processed,
-                                                          'status': 'open'})
+            hashes = []
+            hits = page['hits']['hits']
+            for hit in hits:
+                try:
+                    image_url = hit.get('_source').get('obj_stored_url')
+                except AttributeError:
+                    # Very rare error if happens just skip the record
+                    continue
+                if image_url:
+                    http_error_retries = 0
+                    http_timeout_retries = 0
+                    # If we have retried 3 times for either reason then let's stop
+                    while http_error_retries < 3 and http_timeout_retries < 3:
+                        try:
+                            image = requests.get(image_url, timeout=6)
+                            h = sha1()
+                            h.update(image.text.encode('utf8'))
+                            hash_dict = {'hash': h.hexdigest(),
+                                         'parent': hit.get('_source').get('obj_parent'),
+                                         'url': hit.get('_source').get('obj_original_url'),
+                                         'timestamp': hit.get('_source').get('timestamp'),
+                                         'stored_url': image_url,
+                                         'doc_id': hit.get('_id')}
+                            hashes.append(hash_dict)
+                            break
+                        except requests.HTTPError:
+                            # Http errors are rare, if they happen increment 1 to the http_retry and try again
+                            http_error_retries += 1
+                        except requests.exceptions.Timeout:
+                            # Increment the retry and try again
+                            http_timeout_retries += 1
+                        except:
+                            # Some other request error occurred. Save black result
+                            hash_dict = {'hash': None,
+                                         'parent': hit.get('_source').get('obj_parent'),
+                                         'url': hit.get('_source').get('obj_original_url'),
+                                         'timestamp': hit.get('_source').get('timestamp'),
+                                         'stored_url': hit.get('_source').get('obj_stored_url'),
+                                         'doc_id': hit.get('_id')}
+                            hashes.append(hash_dict)
+            self.query_builder.insert('image_hashes4', values=hashes, bulk=True)
 
         # If there are no hits the page is empty and we are done
         else:
@@ -142,9 +156,9 @@ class HashImages:
             where = 'WHERE status = \'open\''
             rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
             while rows_updated == 0:
-                # Wait three second and try again
-                print 'bumped heads'
-                time.sleep(3)
+                # Wait five second and try again
+                print 'The scroll is in use, waiting 5 seconds and trying again'
+                time.sleep(5)
                 rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
 
             row = self.query_builder.select('scroll_info')[0]
