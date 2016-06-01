@@ -151,28 +151,33 @@ class HashImages:
         Runs the hash images
         :return:
         """
-        while True:
-            # Try to open the database and close the scroll
-            where = 'WHERE status = \'open\''
-            rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
-            while rows_updated == 0:
-                # Wait five second and try again
-                print 'The scroll is in use, waiting 5 seconds and trying again'
-                time.sleep(5)
+        try:
+            while True:
+                # Try to open the database and close the scroll
+                where = 'WHERE status = \'open\''
                 rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
+                while rows_updated == 0:
+                    # Wait five second and try again
+                    time.sleep(5)
+                    rows_updated = self.query_builder.update('scroll_info', values={'status': 'closed'}, where=where)
 
-            row = self.query_builder.select('scroll_info')[0]
-            # This is the first record
-            if row['scroll'] == 'start':
-                self.hash_images()
-            # We are done in this case
-            elif row['scroll'] == 'done':
-                exit(0)
-            # We are in the middle of processing (most likely case)
-            else:
-                self.hash_images(scroll_id=row['scroll'],
-                                 scroll_count=int(row['scrolls_processed']),
-                                 records_processed=int(row['records_processed']))
+                row = self.query_builder.select('scroll_info')[0]
+                # This is the first record
+                if row['scroll'] == 'start':
+                    self.hash_images()
+                # We are done in this case
+                elif row['scroll'] == 'done':
+                    exit(0)
+                # We are in the middle of processing (most likely case)
+                else:
+                    self.hash_images(scroll_id=row['scroll'],
+                                     scroll_count=int(row['scrolls_processed']),
+                                     records_processed=int(row['records_processed']))
+        except Exception as e:
+            print 'Some exception I do not know about'
+            print e
+            self.query_builder.update('scroll_info', {'status': 'open'})
+            exit(1)
 
 HashImages().run()
 
